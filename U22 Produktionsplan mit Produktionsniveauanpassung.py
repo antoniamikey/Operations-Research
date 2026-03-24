@@ -87,17 +87,17 @@ produktionsmenge_start = x[PERIODE[0]] + l0 >= bedarf[PERIODE[0]]
 produktionsmenge = [x[PERIODE[i]] + l[PERIODE[i-1]] >= bedarf[PERIODE[i]] for i in range(1,I)]
 
 # Produktionsbilanz 
-erhb = [erh[PERIODE[i]] == x[PERIODE[i]] - x[PERIODE[i-1]]
-       for i in range(1,I)
-       if x[PERIODE[i]] - x[PERIODE[i-1]] >=0]
+# erhb = [erh[PERIODE[i]] == x[PERIODE[i]] - x[PERIODE[i-1]]
+#        for i in range(1,I)
+#        if x[PERIODE[i]] - x[PERIODE[i-1]] >=0]
 
-vermb = [verm[PERIODE[i]] == -x[PERIODE[i]] + x[PERIODE[i-1]]
-       for i in range(1,I)
-       if x[PERIODE[i]] - x[PERIODE[i-1]] <=0]
+# vermb = [verm[PERIODE[i]] == -x[PERIODE[i]] + x[PERIODE[i-1]]
+#        for i in range(1,I)
+#        if x[PERIODE[i]] - x[PERIODE[i-1]] <=0]
 
-""" bilanz = [erh[PERIODE[i]] - verm[PERIODE[i]]
+bilanz = [erh[PERIODE[i]] - verm[PERIODE[i]]
              == x[PERIODE[i]] - x[PERIODE[i-1]]
-             for i in range(1, I)] """
+             for i in range(1, I)] 
 
 
 # Lagerbestand
@@ -105,7 +105,7 @@ lager_start = l[PERIODE[0]] == l0 + x[PERIODE[0]] - bedarf[PERIODE[0]]
 lager = [l[PERIODE[i]] == x[PERIODE[i]] + l[PERIODE[i-1]] - bedarf[PERIODE[i]]
          for i in range(1, I)]
 
-U22.addConstraint(produktionsmenge_start, produktionsmenge, erhb, vermb, lager_start, lager)
+U22.addConstraint(produktionsmenge_start, produktionsmenge, lager_start, lager)
 
 ################################
 ### INSTANZ LOESEN & AUSGABE ###
