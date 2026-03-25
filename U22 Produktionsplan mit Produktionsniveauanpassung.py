@@ -96,9 +96,9 @@ bilanz = [erh[PERIODE[i]] - verm[PERIODE[i]] == x[PERIODE[i]] - x[PERIODE[i-1]]
              for i in range(1, I)] 
 
 # Berechnung des Lagerbestands 
-lager_start = l[PERIODE[0]] == l0 + x[PERIODE[0]] - bedarf[PERIODE[0]] # Lagerbestand wird für die erste Periode gegeben
+lager_start = l0 + x[PERIODE[0]] - bedarf[PERIODE[0]]==l[PERIODE[0]]  # Lagerbestand wird für die erste Periode gegeben
 
-lager = [l[PERIODE[i]] == x[PERIODE[i]] + l[PERIODE[i-1]] - bedarf[PERIODE[i]]
+lager = [x[PERIODE[i]] + l[PERIODE[i-1]] - bedarf[PERIODE[i]] == l[PERIODE[i]]
          for i in range(1, I)] # Lagerbestand für die weiteren Perioden
 
 # Nebenbedingungen zur Instanz hinzufügen
@@ -121,7 +121,7 @@ kosten_produktionsniveau = sum(verminderungen[i] * vk + erhöhungen[i] * ek for 
 gesamtkosten = sum(produktionsmengex[i] * 10 + verminderungen[i] * vk + erhöhungen[i] * ek + lagerbestand[i] * lk for i in PERIODE)
 
 # Ausgabe in der Konsole
-print(gesamtkosten)
+print("Gesamtkosten: ", gesamtkosten)
 print("Produktionsmenge pro Periode: ", produktionsmengex)
 print("Lagerbestand pro Periode: ", lagerbestand)
 print("Verminderungen pro Periode: ", verminderungen)
@@ -136,19 +136,15 @@ use.write_scalar(sheet, "H2", kosten_produktionsniveau, "Gesamtkosten für die �
 # Datei speichern und schließen 
 use.save_sheet(workbook, "U22 Produktionsplan.xlsx")
 
-
-# (a) Finde mit Hilfe des Konzeptes des Dualwerte heraus, in welcher Periode eine erhöhte Nachfrage um eine Einheit am wenigsten die Gesamtkosten erhöht. 
-#dual_Nachfrage = U22.getDuals(produktionsmenge)
 dual_Lager_start = U22.getDuals(lager_start)
 dual_lager = U22.getDuals(lager)
 
-# Zusammenführen der Dualwerte
+# Hier kommentieren
 alle_duals = {}
-alle_duals[PERIODE[0]] = -dual_Lager_start  
+alle_duals[PERIODE[0]] = dual_Lager_start  
 for i in range(1, I):
-    alle_duals[PERIODE[i]] = -dual_lager[i-1]
-    
-print(alle_duals)
+    alle_duals[PERIODE[i]] = dual_lager[i-1] #hier negativ, da bei uns der
+print("Dualwerte für die Erhöhung des Bedarfs: ", alle_duals)
 
 min_periode = min(alle_duals, key=lambda p: alle_duals[p])
 print("Günstigste Periode:", min_periode)
