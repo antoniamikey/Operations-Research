@@ -102,6 +102,7 @@ lager = [x[PERIODE[i]] + l[PERIODE[i-1]] - bedarf[PERIODE[i]] == l[PERIODE[i]]
          for i in range(1, I)] # Lagerbestand für die weiteren Perioden
 
 # Nebenbedingungen zur Instanz hinzufügen
+U22.addConstraint(l[PERIODE[2]] >= 1)
 U22.addConstraint(lager_start, lager, bilanz, produktionsmenge)
 
 
