@@ -13,6 +13,7 @@ workbook, sheet = use.open_sheet("U22 Produktionsplan.xlsx", 0)
 # Initialisiere Instanz
 U22 = xp.problem()
 
+
 ################################
 ### PARAMETER, MENGEN        ###
 ################################
@@ -23,31 +24,29 @@ U22 = xp.problem()
 ek = use.read_scalar(sheet, "C3") # Erhöhungskosten
 vk = use.read_scalar(sheet, "D3") # Verminderungskosten 
 
+
 # Produktionskosten 
 pk = use.read_scalar(sheet, "A3")
-print(pk)
 
 # Lagerkosten 
 lk = use.read_scalar(sheet, "B3")
 
 # Lagerbestand zum Zeitpunkt t=0
-l0 = use.read_scalar(sheet, "K3")
+l0 = use.read_scalar(sheet, "E8")
 
-# Anzahl Perioden
-I = use.read_scalar(sheet, "G3")
-print(I)
+# Anzahl Perioden in denen produziert wird
+I = use.read_scalar(sheet, "F3")
 
 ### Mengen #####################
-PERIODE = use.read_index(sheet, "I4", "vertical", I)
-print(PERIODE[0])
 
-#PERIODEPRDUKTION = use.read_index(sheet, "J10", "vertical", "I")
+# Perioden in denen produziert wird
+PERIODE = use.read_index(sheet, "A9", "vertical", I)
 
 ### Vektorparameter ############
 
 # Bedarf pro Periode
-bedarf = use.read_table(sheet, "J4", PERIODE)
-print(bedarf)
+bedarf = use.read_table(sheet, "B9", PERIODE)
+
 
 ################################
 ### VARIABLEN                ###
@@ -68,53 +67,76 @@ erh = U22.addVariables(PERIODE, name="erh",
 verm = U22.addVariables(PERIODE, name="verm",
                      lb=0, vartype = xp.continuous)
 
+
 ################################
 ### ZIELFUNKTION             ###
 ################################
 
+# Minimierung der Produktionskosten über alle Perioden
 produktionskosten = xp.Sum(x[p] * pk +
                     l[p] * lk +
                     erh[p] * ek +
                     verm[p] * vk
                     for p in PERIODE)
 
+# Hinzufügen der Zielfunktion zum Modell
 U22.setObjective(produktionskosten, sense=xp.minimize)
+
 
 ################################
 ### NEBENBEDINGUNGEN         ###
 ################################
-produktionsmenge_start = x[PERIODE[0]] + l0 >= bedarf[PERIODE[0]]
-produktionsmenge = [x[PERIODE[i]] + l[PERIODE[i-1]] >= bedarf[PERIODE[i]] for i in range(1,I)]
 
-# Produktionsbilanz 
-# erhb = [erh[PERIODE[i]] == x[PERIODE[i]] - x[PERIODE[i-1]]
-#        for i in range(1,I)
-#        if x[PERIODE[i]] - x[PERIODE[i-1]] >=0]
+# Anpassung der Produktionsmenge an den Bedarf -> Änderungsmenge für die erste Periode wird nicht betrachtet, da diese immer 0 ist
+produktionsmenge = [x[PERIODE[i]] + l[PERIODE[i-1]] >= bedarf[PERIODE[i]] 
+                    for i in range(1,I)] 
 
-# vermb = [verm[PERIODE[i]] == -x[PERIODE[i]] + x[PERIODE[i-1]]
-#        for i in range(1,I)
-#        if x[PERIODE[i]] - x[PERIODE[i-1]] <=0]
-
-bilanz = [erh[PERIODE[i]] - verm[PERIODE[i]]
-             == x[PERIODE[i]] - x[PERIODE[i-1]]
+# Veränderungen in der Produktionsmenge, welche ebenfalls Kosten verursachen 
+bilanz = [erh[PERIODE[i]] - verm[PERIODE[i]] == x[PERIODE[i]] - x[PERIODE[i-1]]
              for i in range(1, I)] 
 
+# Berechnung des Lagerbestands 
+lager_start = l[PERIODE[0]] == l0 + x[PERIODE[0]] - bedarf[PERIODE[0]] # Lagerbestand wird für die erste Periode gegeben
 
-# Lagerbestand
-lager_start = l[PERIODE[0]] == l0 + x[PERIODE[0]] - bedarf[PERIODE[0]]
 lager = [l[PERIODE[i]] == x[PERIODE[i]] + l[PERIODE[i-1]] - bedarf[PERIODE[i]]
-         for i in range(1, I)]
+         for i in range(1, I)] # Lagerbestand für die weiteren Perioden
 
-U22.addConstraint(produktionsmenge_start, produktionsmenge, lager_start, lager)
+# Nebenbedingungen zur Instanz hinzufügen
+U22.addConstraint(produktionsmenge, lager_start, lager, bilanz)
+
 
 ################################
 ### INSTANZ LOESEN & AUSGABE ###
 ################################
 
-# Instanz loesen
+# Instanz lösen
 U22.lpOptimize()
-U22.getSolution(x)
 
-print(U22.getSolution(x))
-print(U22.getSolution(verm))
-print(U22.getSolution(erh))
+# Lösung anfordern 
+produktionsmengex = U22.getSolution(x)
+lagerbestand = U22.getSolution(l)
+verminderungen = U22.getSolution(verm)
+erhöhungen = U22.getSolution(erh)
+kosten_produktionsniveau = sum(verminderungen[i] * vk + erhöhungen[i] * ek for i in PERIODE)
+
+# Ausgabe in der Konsole
+print("Produktionsmenge pro Periode: ", produktionsmengex)
+print("Lagerbestand pro Periode: ", lagerbestand)
+print("Verminderungen pro Periode: ", verminderungen)
+print("Erhöhungen pro Periode: ", erhöhungen)
+print("Gesamtkosten für den Wechsel des Produktionsniveaus: ", kosten_produktionsniveau)
+
+# Ausgabe im Excel Sheet
+use.write_tbody(sheet, "D8", lagerbestand, PERIODE)
+use.write_tbody(sheet, "G8", produktionsmengex, PERIODE)
+use.write_scalar(sheet, "H2", kosten_produktionsniveau, "Gesamtkosten für die Änderung des Produktionsniveaus")
+
+# Datei speichern und schließen 
+use.save_sheet(workbook, "U22 Produktionsplan.xlsx")
+
+
+# (a) Finde mit Hilfe des Konzeptes des Dualwerte heraus, in welcher Periode eine erhöhte Nachfrage um eine Einheit am wenigsten die Gesamtkosten erhöht. 
+dual_Nachfrage = U22.getDuals(produktionsmenge)
+print(dual_Nachfrage)
+
+# (b) Gib eine Interpretation der reduzierten Kosten derjenigen Variable an, die den Lagerbestand am Anfang von Periode 4 modelliert.
