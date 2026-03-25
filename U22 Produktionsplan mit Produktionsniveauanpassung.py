@@ -117,7 +117,11 @@ produktionsmengex = U22.getSolution(x)
 lagerbestand = U22.getSolution(l)
 verminderungen = U22.getSolution(verm)
 erhöhungen = U22.getSolution(erh)
+
+# Berechnung der Kosten für die Veränderungen des Produktionsniveaus
 kosten_produktionsniveau = sum(verminderungen[i] * vk + erhöhungen[i] * ek for i in PERIODE)
+
+# Berechnung der Gesamtkosten
 gesamtkosten = sum(produktionsmengex[i] * 10 + verminderungen[i] * vk + erhöhungen[i] * ek + lagerbestand[i] * lk for i in PERIODE)
 
 # Ausgabe in der Konsole
@@ -136,20 +140,28 @@ use.write_scalar(sheet, "H2", kosten_produktionsniveau, "Gesamtkosten für die �
 # Datei speichern und schließen 
 use.save_sheet(workbook, "U22 Produktionsplan.xlsx")
 
+
+#########################################
+### Dualvariablen & reduzierte Kosten ###
+#########################################
+
+# Berechnung der Dualvariablen für die Änderung des Bedarfs 
 dual_Lager_start = U22.getDuals(lager_start)
 dual_lager = U22.getDuals(lager)
 
-# Hier kommentieren
-alle_duals = {}
-alle_duals[PERIODE[0]] = dual_Lager_start  
+# Speicherung der Dualvariablen in einer gemeinsamen Liste
+dual_lager_gesamt = {}
+dual_lager_gesamt[PERIODE[0]] = dual_Lager_start  
 for i in range(1, I):
-    alle_duals[PERIODE[i]] = dual_lager[i-1] #hier negativ, da bei uns der
-print("Dualwerte für die Erhöhung des Bedarfs: ", alle_duals)
+    dual_lager_gesamt[PERIODE[i]] = dual_lager[i-1] 
 
-min_periode = min(alle_duals, key=lambda p: alle_duals[p])
+print("Dualwerte für die Erhöhung des Bedarfs: ", dual_lager_gesamt) 
+
+# Ausgabe der kleinsten Dualvariable und den damit verbundenen Kostenerhöhungen
+min_periode = min(dual_lager_gesamt, key=lambda p: dual_lager_gesamt[p])
 print("Günstigste Periode:", min_periode)
-print("Geringste Kostenerhöhung:", alle_duals[min_periode])
+print("Geringste Kostenerhöhung:", dual_lager_gesamt[min_periode])
 
-# Bitte hier kommentieren    
-rc = U22.getRedCosts(l[PERIODE[2]])
+# Berechnung der reduzierten Kosten für den Beginn von Periode 4 = Ende der Periode 3
+rc = U22.getRedCosts(l[3])
 print("Reduzierte Kosten für den Lagerbestand am Anfang von Periode 4 (Bzw. am Ende von Periode 3):", rc)
