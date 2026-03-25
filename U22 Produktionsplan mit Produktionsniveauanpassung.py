@@ -102,7 +102,6 @@ lager = [x[PERIODE[i]] + l[PERIODE[i-1]] - bedarf[PERIODE[i]] == l[PERIODE[i]]
          for i in range(1, I)] # Lagerbestand für die weiteren Perioden
 
 # Nebenbedingungen zur Instanz hinzufügen
-U22.addConstraint(l[PERIODE[2]] >= 1)
 U22.addConstraint(lager_start, lager, bilanz, produktionsmenge)
 
 
@@ -164,5 +163,5 @@ print("Günstigste Periode:", min_periode)
 print("Geringste Kostenerhöhung:", dual_lager_gesamt[min_periode])
 
 # Berechnung der reduzierten Kosten für den Beginn von Periode 4 = Ende der Periode 3
-rc = U22.getRedCosts(l[3])
+rc = U22.getRedCosts(l[PERIODE[2]])
 print("Reduzierte Kosten für den Lagerbestand am Anfang von Periode 4 (Bzw. am Ende von Periode 3):", rc)
