@@ -150,6 +150,6 @@ min_periode = min(alle_duals, key=lambda p: alle_duals[p])
 print("Günstigste Periode:", min_periode)
 print("Geringste Kostenerhöhung:", alle_duals[min_periode])
 
-# (b) Gib eine Interpretation der reduzierten Kosten derjenigen Variable an, die den Lagerbestand am Anfang von Periode 4 modelliert.
-#rc = U22.getRedCosts(l)
-#print("Reduzierte Kosten l[Periode 3]:", rc[PERIODE[2]])
+# Bitte hier kommentieren    
+rc = U22.getRedCosts(l[PERIODE[2]])
+print("Reduzierte Kosten für den Lagerbestand am Anfang von Periode 4 (Bzw. am Ende von Periode 3):", rc)
