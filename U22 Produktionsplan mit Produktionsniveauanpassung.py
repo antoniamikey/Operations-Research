@@ -117,7 +117,11 @@ produktionsmengex = U22.getSolution(x)
 lagerbestand = U22.getSolution(l)
 verminderungen = U22.getSolution(verm)
 erhöhungen = U22.getSolution(erh)
-kosten_produktionsniveau = sum(verminderungen[i] * vk + erhöhungen[i] * ek for i in PERIODE)
+
+# Berechnung der Kosten für die Veränderungen des Produktionsniveaus
+kosten_produktionsniveau = sum(verminderungen[i] * vk + erhöhungen[i] * ek for i in PERIODE) 
+
+# Berechnung der 
 gesamtkosten = sum(produktionsmengex[i] * 10 + verminderungen[i] * vk + erhöhungen[i] * ek + lagerbestand[i] * lk for i in PERIODE)
 
 # Ausgabe in der Konsole
