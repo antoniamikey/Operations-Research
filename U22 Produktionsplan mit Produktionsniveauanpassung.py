@@ -1,7 +1,7 @@
 """
 U22 Produktionsplan mit Produktionsniveauanpassung 
 Modell-Datei
-@author: Antonia Schikora
+@author: Antonia Schikora, Cedric Schuster, Jonas Stassiuk, Pascal Moroschan 
 """
 
 import xpress as xp
