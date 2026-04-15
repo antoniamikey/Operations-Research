@@ -69,7 +69,7 @@ ProdV = lastgang.addVariables(GEN, STUNDE, TAG, name="ProdV",
 
 # Anzahl laufender Generatoren von Typ g in Stunde h an Tag t (ganzzahlig)
 LaufGV = lastgang.addVariables(GEN, STUNDE, TAG, name="LaufGV", 
-                     lb=0, vartype = xp.integer)
+                     lb=0, ub=verfgen[GEN], vartype = xp.integer)
 
 # Anzahl neu gestarteter Generatoren von Typ g in Stunde h an Tag t (ganzzahlig)
 NeuGV = lastgang.addVariables(GEN, STUNDE, TAG, name="NeuGV", 
@@ -109,18 +109,43 @@ lastgang.setObjective(gesamtkosten, sense=xp.minimize)
 bedarfsdeckung = [xp.Sum(ProdV[i, h, t] for i in GEN) >= bedarf[h, t] 
                    for h in STUNDE for t in TAG] 
 
+# Minimalproduktion (bestimmt durch Minimallast)
+produktionsminimum = [ProdV[i, h, t] >= minlast[i] * LaufGV[i, h, t]
+                      for i in GEN for h in STUNDE for t in TAG]
+
+# Maximalproduktion (bestimmt durch Maximallast)
+produktionsmaximum = [ProdV[i, h, t] <= maxlast[i] * LaufGV[i, h, t]
+                      for i in GEN for h in STUNDE for t in TAG]
+
+
 # Lastgang muss die Puffer einhalten
-bilanz = [erh[PERIODE[i]] - verm[PERIODE[i]] == x[PERIODE[i]] - x[PERIODE[i-1]]
-             for i in range(1, I)] 
+# oberer Puffer -> Generatoren müssen den Bedarf plus den Erhöhungspuffer abdecken können ohne einen neuen Generator anlassen zu müssen
+obererPuffer = [xp.Sum(maxlast[i] * LaufGV[i, h, t] for i in GEN) >= (1 + puffer_oben) * bedarf[h, t]
+                for h in STUNDE for t in TAG] 
+
+# unterer Puffer -> Generatoren müssen den Bedarf abzüglich des Verminderungspuffers abdecken können ohne einen Generator unter seine Minimallast zu bringen
+untererPuffer = [xp.Sum(minlast[i] * LaufGV[i, h, t] for i in GEN) <= (1 - puffer_unten) * bedarf[h, t]
+                 for h in STUNDE for t in TAG]
+
 
 # es muss Netzwerkstabilität gewährleistet werden -> es ist nicht möglich, mehr als 3 Generatoren vom Typ 2 zu verwenden, wenn zu demselben Zeitpunkt mehr als 3 Generatoren vom Typ 1 verwendet werden.
-lager_start = l0 + x[PERIODE[0]] - bedarf[PERIODE[0]]==l[PERIODE[0]]  
+
+M1 = verfgen[1]-3
+M2 = verfgen[2]-3
+
+netzwerkstabilität1 = [LaufGV[1, h, t] <= 3 + M1 * NetzV[h, t]
+                       for h in STUNDE for t in TAG] # y wird auf 1 gesetzt, wenn von Typ 1 mehr als 3 verwendet werden
+
+netzwerkstabilität1 = [LaufGV[2, h, t] <= 3 + M2 * (1 - NetzV[h, t])
+                      for h in STUNDE for t in TAG]  
+
 
 # Lastgang zum Ende der Woche muss dem Lastgang zu Beginn der nächsten Periode entsprechen 
-lager = [x[PERIODE[i]] + l[PERIODE[i-1]] - bedarf[PERIODE[i]] == l[PERIODE[i]]
-         for i in range(1, I)] # Lagerbestand für die weiteren Perioden
 
-# Kostensachen
+# -----> das ist von Claude idk 
+# Anlasszähler (zyklisch): s zählt Hochfahrungen gegenüber Vorperiode
+#anlass = [s[g, t, z] >= n[g, t, z] - n[g, prev(t, z)[0], prev(t, z)[1]]
+#          for g in GEN for (t, z) in TS]
 
 # Nebenbedingungen zur Instanz hinzufügen
 lastgang.addConstraint()
