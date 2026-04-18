@@ -21,8 +21,8 @@ lastgang = xp.problem()
 ### Skalarparameter ###########
 
 # Lastgangpuffer, wie viel Spielraum ist nach oben und nach unten gegeben
-puffer_oben = use.read_scalar(sheet, "J2") 
-puffer_unten = use.read_scalar(sheet, "K2")
+puffer_oben = use.read_scalar(sheet, "L14") 
+puffer_unten = use.read_scalar(sheet, "L15")
 
 ### Mengen #####################
 
@@ -33,27 +33,27 @@ TAG = use.read_index(sheet, "B2", "horizontal", 7)
 STUNDE = use.read_index(sheet, "A3", "vertical", 24)
 
 # Generatortypen -> hier Zahl ändern, wenn mehr Generatortypen verwendet werden sollen
-GEN = use.read_index(sheet, "N1", "horizontal", 2)
+GEN = use.read_index(sheet, "K3", "vertical", 2)
 
 ### Vektorparameter ############
 
 # Anlasskosten (EUR pro Anlassung)
-anlassko = use.read_table(sheet, "N2", GEN)
+anlassko = use.read_table(sheet, "L3", GEN)
 
 # Fixkosten auf Minimallast (EUR pro Stunde je Generator)
-minlastko = use.read_table(sheet, "N3", GEN)
+minlastko = use.read_table(sheet, "O3", GEN)
 
 # Variable Kosten oberhalb Minimallast (EUR pro MW und Stunde)
-kouebermin = use.read_table(sheet, "N4", GEN)
+kouebermin = use.read_table(sheet, "R3", GEN)
 
 # Minimallast (MW)
-minlast = use.read_table(sheet, "N5", GEN)
+minlast = use.read_table(sheet, "U3", GEN)
 
 # Maximallast (MW)
-maxlast = use.read_table(sheet, "N6", GEN)
+maxlast = use.read_table(sheet, "X3", GEN)
 
 # Anzahl verfügbarer Generatoren
-verfgen = use.read_table(sheet, "N7", GEN)
+verfgen = use.read_table(sheet, "AA3", GEN)
 
 # Lastgang-Bedarf (MW)
 bedarf = use.read_table(sheet, "B3", STUNDE, TAG)
@@ -69,7 +69,7 @@ ProdV = lastgang.addVariables(GEN, STUNDE, TAG, name="ProdV",
 
 # Anzahl laufender Generatoren von Typ g in Stunde h an Tag t (ganzzahlig)
 LaufGV = lastgang.addVariables(GEN, STUNDE, TAG, name="LaufGV", 
-                     lb=0, ub=verfgen[GEN], vartype = xp.integer)
+                     lb=0, vartype = xp.integer)
 
 # Anzahl neu gestarteter Generatoren von Typ g in Stunde h an Tag t (ganzzahlig)
 NeuGV = lastgang.addVariables(GEN, STUNDE, TAG, name="NeuGV", 
@@ -85,17 +85,10 @@ NetzV = lastgang.addVariables(STUNDE, TAG, name="NetzV",
 ################################
 
 # Minimierung der Gesamtkosten
-gesamtkosten = (
-    
-    # Anlasskosten
-    xp.Sum(anlassko[i] * NeuGV[i, h, t] for i in GEN for h in STUNDE for t in TAG)
-
-    # + Kosten auf Minimallast
-    + xp.Sum(minlastko[i] * LaufGV[i, h, t] for i in GEN for h in STUNDE for t in TAG)
-
-    # + Kosten über Minimallast 
-    + xp.Sum(kouebermin[i] * (ProdV[i, h, t] - minlast[i] * LaufGV[i, h, t]) for i in GEN for h in STUNDE for t in TAG)
-)
+gesamtkosten = xp.Sum(anlassko[g] * NeuGV[g, s, t] #Anlasskosten
+    + minlastko[g] * LaufGV[g, s, t] # Kosten auf Minimallast
+    + kouebermin[g] * (ProdV[g, s, t] - minlast[g] * LaufGV[g, s, t]) #Kosten über Minimallast 
+    for g in GEN for s in STUNDE for t in TAG)
 
 # Hinzufügen der Zielfunktion zum Modell 
 lastgang.setObjective(gesamtkosten, sense=xp.minimize)
@@ -130,25 +123,30 @@ untererPuffer = [xp.Sum(minlast[i] * LaufGV[i, h, t] for i in GEN) <= (1 - puffe
 
 # es muss Netzwerkstabilität gewährleistet werden -> es ist nicht möglich, mehr als 3 Generatoren vom Typ 2 zu verwenden, wenn zu demselben Zeitpunkt mehr als 3 Generatoren vom Typ 1 verwendet werden.
 
-M1 = verfgen[1]-3
-M2 = verfgen[2]-3
+M1 = verfgen[GEN[0]]-3
+M2 = verfgen[GEN[1]]-3
 
-netzwerkstabilität1 = [LaufGV[1, h, t] <= 3 + M1 * NetzV[h, t]
+netzwerkstabilität1 = [LaufGV[GEN[0], h, t] <= 3 + M1 * NetzV[h, t]
                        for h in STUNDE for t in TAG] # y wird auf 1 gesetzt, wenn von Typ 1 mehr als 3 verwendet werden
 
-netzwerkstabilität1 = [LaufGV[2, h, t] <= 3 + M2 * (1 - NetzV[h, t])
+netzwerkstabilität2 = [LaufGV[GEN[1], h, t] <= 3 + M2 * (1 - NetzV[h, t])
                       for h in STUNDE for t in TAG]  
 
 
-# Lastgang zum Ende der Woche muss dem Lastgang zu Beginn der nächsten Periode entsprechen 
+# Lastgang zum Ende der Woche muss dem Lastgang zu Beginn der nächsten Periode entsprechen / entstehende Anlasskosten
+neugestarteteGeneratoren_start = [NeuGV[g, STUNDE[0], TAG[0]] >= LaufGV[g, STUNDE[0], TAG[0]]
+                                   for g in GEN]  # Startzeitpunkt: Vorgänger = 0
+neugestarteteGeneratoren_stunde = [NeuGV[g, STUNDE[s], t] >= LaufGV[g, STUNDE[s], t] - LaufGV[g, STUNDE[s-1], t]
+                                   for g in GEN for s in range(1, len(STUNDE)) for t in TAG ]
+neugestarteteGeneratoren_tag = [NeuGV[g, STUNDE[0], TAG[t]] >= LaufGV[g, STUNDE[0], TAG[t]] - LaufGV[g, STUNDE[0], TAG[t-1]]
+                                for g in GEN for t in range(1, len(TAG))]
 
-# -----> das ist von Claude idk 
-# Anlasszähler (zyklisch): s zählt Hochfahrungen gegenüber Vorperiode
-#anlass = [s[g, t, z] >= n[g, t, z] - n[g, prev(t, z)[0], prev(t, z)[1]]
-#          for g in GEN for (t, z) in TS]
+
+# # Berechnung des Lagerbestands 
+# lager_start = l0 + x[PERIODE[0]] - bedarf[PERIODE[0]]==l[PERIODE[0]]  # Lagerbestand wird für die erste Periode gegeben
 
 # Nebenbedingungen zur Instanz hinzufügen
-lastgang.addConstraint()
+lastgang.addConstraint(bedarfsdeckung, produktionsminimum, produktionsmaximum, obererPuffer, untererPuffer, netzwerkstabilität1, netzwerkstabilität2, neugestarteteGeneratoren_start, neugestarteteGeneratoren_stunde, neugestarteteGeneratoren_tag)
 
 
 ################################
@@ -156,7 +154,8 @@ lastgang.addConstraint()
 ################################
 
 # Instanz lösen
-lastgang.lpOptimize()
+lastgang.mipOptimize()
+
 
 # Lösung anfordern 
 
@@ -165,7 +164,7 @@ lastgang.lpOptimize()
 # Ausgabe im Excel Sheet
 
 # Datei speichern und schließen -> AUS VORHERIGEM PROJEKT; MUSS NOCH GEÄNDERT WERDEN
-use.save_sheet(workbook, "U22 Produktionsplan.xlsx")
+# use.save_sheet(workbook, "U22 Produktionsplan.xlsx")
 
 
 #########################################
