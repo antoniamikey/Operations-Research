@@ -129,25 +129,23 @@ print("\nGesamtkosten:", gesamtkosten_wert, "EUR")
 ### EXCEL-AUSGABE            ###
 ################################
 
-# Die Eingabedatei wird als Basis für die Ausgabedatei ein zweites Mal geöffnet.
-# Die Ergebnisse werden in den freien Bereich unterhalb der Eingabedaten geschrieben
-# und anschließend unter einem neuen Dateinamen gespeichert,
-# sodass die Originaldatei unverändert erhalten bleibt.
-workbook_out, sheet_out = use.open_sheet("ProjektLastgang.xlsx", 0)
+# HINWEIS: Vor dem ersten Ausführen dieses Skripts muss im selben Ordner
+# eine leere Excel-Datei mit dem Namen "ProjektErgebnis.xlsx" erstellt werden.
+print("HINWEIS: Vor dem ersten Ausführen dieses Skripts muss im selben Ordner eine leere Excel-Datei mit dem Namen 'ProjektErgebnis.xlsx' erstellt werden")
+# Dazu einfach eine neue Excel-Datei anlegen, speichern und wieder schließen.
+# Die Datei muss beim Ausführen des Skripts geschlossen sein.
+workbook_out, sheet_out = use.open_sheet("ProjektErgebnis.xlsx", 0)
 
 # Produktionsplan: Gesamtproduktion je Generatortyp, Stunde und Tag (MW).
-# write_tbody legt GEN × STUNDE als Zeilenindizes und TAG als Spaltenindizes an:
-# 2 Generatortypen × 24 Stunden = 48 Datenzeilen, 7 Tagesspalten.
-use.write_thead(sheet_out, "A33", "Produktion (MW)", "Generator", "Stunde", "Wochentag")
-use.write_tbody(sheet_out, "A33", prod_plan, dat.GEN, dat.STUNDE, dat.TAG)
+use.write_thead(sheet_out, "A1", "Produktion (MW)", "Generator", "Stunde", "Wochentag")
+use.write_tbody(sheet_out, "A1", prod_plan, dat.GEN, dat.STUNDE, dat.TAG)
 
-# Anzahl laufender Generatoren je Typ, Stunde und Tag (ganzzahlig)
-use.write_thead(sheet_out, "A85", "Laufende Generatoren", "Generator", "Stunde", "Wochentag")
-use.write_tbody(sheet_out, "A85", laufend, dat.GEN, dat.STUNDE, dat.TAG)
+
+# Anzahl laufender Generatoren je Typ, Stunde und Tag (ganzzahlig).
+use.write_thead(sheet_out, "K1", "Laufende Generatoren", "Generator", "Stunde", "Wochentag")
+use.write_tbody(sheet_out, "K1", laufend, dat.GEN, dat.STUNDE, dat.TAG)
 
 # Kostenaufschlüsselung
-# Die drei Kostenkomponenten werden je Generatortyp berechnet und als
-# separate 1D-Tabellen ausgegeben (Zeilen: Generatortyp, Spalte: Betrag in EUR).
 
 # Anlasskosten je Generatortyp (EUR):
 # anlassko[g] × Summe aller Neustarts über alle Stunden und Tage
@@ -156,7 +154,7 @@ anlasskosten_gen = {g: sum(dat.anlassko[g] * neugestart[g, s, t]
                     for g in dat.GEN}
 
 # Fixkosten auf Minimallast je Generatortyp (EUR):
-# minlastko[g] × Summe aller Laufstunden (jede Stunde, in der der Generator läuft)
+# minlastko[g] × Summe aller Laufstunden
 fixkosten_gen = {g: sum(dat.minlastko[g] * laufend[g, s, t]
                         for s in dat.STUNDE for t in dat.TAG)
                  for g in dat.GEN}
@@ -167,18 +165,18 @@ varkosten_gen = {g: sum(dat.kouebermin[g] * (prod_plan[g, s, t] - dat.minlast[g]
                         for s in dat.STUNDE for t in dat.TAG)
                  for g in dat.GEN}
 
-# Ausgabe der drei Kostenkomponenten als je 3-zeilige Tabelle (Header + 2 Generatortypen)
-use.write_thead(sheet_out, "A137", "Anlasskosten (EUR)", "Generator")
-use.write_tbody(sheet_out, "A137", anlasskosten_gen, dat.GEN)
+# Ausgabe der drei Kostenkomponenten
+use.write_thead(sheet_out, "U1", "Anlasskosten (EUR)", "Generator")
+use.write_tbody(sheet_out, "U1", anlasskosten_gen, dat.GEN)
 
-use.write_thead(sheet_out, "A142", "Fixkosten auf Minimallast (EUR)", "Generator")
-use.write_tbody(sheet_out, "A142", fixkosten_gen, dat.GEN)
+use.write_thead(sheet_out, "U5", "Fixkosten auf Minimallast (EUR)", "Generator")
+use.write_tbody(sheet_out, "U5", fixkosten_gen, dat.GEN)
 
-use.write_thead(sheet_out, "A147", "Variable Kosten oberhalb Minimallast (EUR)", "Generator")
-use.write_tbody(sheet_out, "A147", varkosten_gen, dat.GEN)
+use.write_thead(sheet_out, "U9", "Variable Kosten oberhalb Minimallast (EUR)", "Generator")
+use.write_tbody(sheet_out, "U9", varkosten_gen, dat.GEN)
 
 # Gesamtkosten (= Zielfunktionswert)
-use.write_scalar(sheet_out, "A152", gesamtkosten_wert, "Gesamtkosten (EUR)")
+use.write_scalar(sheet_out, "U13", gesamtkosten_wert, "Gesamtkosten (EUR)")
 
-# Ergebnisse als neue Datei speichern — ProjektLastgang.xlsx bleibt unverändert.
+# Ergebnisse in der Ausgabedatei speichern.
 use.save_sheet(workbook_out, "ProjektErgebnis.xlsx")
