@@ -22,10 +22,9 @@ ProdV = lastgang.addVariables(dat.GEN, dat.STUNDE, dat.TAG,
 LaufGV = lastgang.addVariables(dat.GEN, dat.STUNDE, dat.TAG,
                                name="LaufGV", lb=0, vartype=xp.integer)
 
-# FIX 1: NeuGV von integer auf continuous umgestellt.
-# Begründung: NeuGV erbt Ganzzahligkeit von LaufGV (da NeuGV >= LaufGV[t] - LaufGV[t-1],
-# und LaufGV ganzzahlig ist, nimmt NeuGV im Optimum automatisch ganzzahlige Werte an).
-# Der Dozent verlangt explizit minimalen Einsatz von Ganzzahl-Variablen.
+
+# Begründung für continuous: NeuGV erbt Ganzzahligkeit von LaufGV (da NeuGV >= LaufGV[t] - LaufGV[t-1],
+# und LaufGV ganzzahlig ist, nimmt NeuGV im Optimum automatisch ganzzahlige Werte an)
 NeuGV = lastgang.addVariables(dat.GEN, dat.STUNDE, dat.TAG,
                               name="NeuGV", lb=0, vartype=xp.continuous)
 
@@ -62,8 +61,8 @@ produktionsminimum = [ProdV[g, s, t] >= dat.minlast[g] * LaufGV[g, s, t]
 produktionsmaximum = [ProdV[g, s, t] <= dat.maxlast[g] * LaufGV[g, s, t]
                       for g in dat.GEN for s in dat.STUNDE for t in dat.TAG]
 
-# FIX 2: Obergrenze für Anzahl laufender Generatoren.
-# Ohne diese NB könnte der Solver theoretisch mehr Generatoren einsetzen als verfügbar.
+# Obergrenze für Anzahl laufender Generatoren.
+# Ohne diese NB könnte der Solver theoretisch mehr Generatoren einsetzen als verfügbar
 maxAnzGen = [LaufGV[g, s, t] <= dat.verfgen[g]
              for g in dat.GEN for s in dat.STUNDE for t in dat.TAG]
 
@@ -75,19 +74,19 @@ obererPuffer = [xp.Sum(dat.maxlast[g] * LaufGV[g, s, t] for g in dat.GEN) >= (1 
 untererPuffer = [xp.Sum(dat.minlast[g] * LaufGV[g, s, t] for g in dat.GEN) <= (1 - dat.puffer_unten) * dat.bedarf[s, t]
                  for s in dat.STUNDE for t in dat.TAG]
 
-# Netzwerkstabilität: nicht mehr als 3 Typ-1 UND mehr als 3 Typ-2 gleichzeitig.
-# Hinweis: GEN[0] = Typ 1, GEN[1] = Typ 2 — Reihenfolge muss der Excel entsprechen.
-M1 = dat.verfgen[dat.GEN[0]] - 3  # = 3
-M2 = dat.verfgen[dat.GEN[1]] - 3  # = 5
+# Netzwerkstabilität: nicht mehr als 3 Typ-1 UND mehr als 3 Typ-2 gleichzeitig
+# Hinweis: GEN[0] = Typ 1, GEN[1] = Typ 2 — Reihenfolge muss der Excel entsprechen
+M1 = dat.verfgen[dat.GEN[0]] - 3  # entspricht hier 3
+M2 = dat.verfgen[dat.GEN[1]] - 3  # entspricht hier 5
 
 netzwerkstabilitaet1 = [LaufGV[dat.GEN[0], s, t] <= 3 + M1 * NetzV[s, t]
                         for s in dat.STUNDE for t in dat.TAG]
 netzwerkstabilitaet2 = [LaufGV[dat.GEN[1], s, t] <= 3 + M2 * (1 - NetzV[s, t])
                         for s in dat.STUNDE for t in dat.TAG]
 
-# FIX 3: Anlasskosten — Woche ist periodisch.
-# Übergang Sonntag 23:00 → Montag 0:00: gleiche Generatoren = keine Anlasskosten.
-# STUNDE[-1] = letzte Stunde, TAG[-1] = Sonntag.
+# Anlasskosten: Woche ist periodisch
+# Übergang Sonntag 23:00 auf Montag 0:00: gleiche Generatoren = keine Anlasskosten
+# STUNDE[-1] = letzte Stunde, TAG[-1] = Sonntag
 neugestartet_wochenanfang = [
     NeuGV[g, dat.STUNDE[0], dat.TAG[0]] >= LaufGV[g, dat.STUNDE[0], dat.TAG[0]] - LaufGV[g, dat.STUNDE[-1], dat.TAG[-1]]
     for g in dat.GEN]
